@@ -3,12 +3,19 @@
 __pycache__/
 *.pyc
 
+# Python generated files
+dataset_clean/
+runs/
+reports/
+samples/
+
 # Node
 node_modules/
 
 # Environment
 .env
 .env.*
+!**/.env.example
 
 # Database
 *.db
@@ -16,6 +23,7 @@ node_modules/
 
 # Uploads
 ai_module/backend/uploads/
+backend/uploads/
 
 # IDE
 .vscode/
@@ -23,3 +31,4 @@ ai_module/backend/uploads/
 
 # Logs
 *.log
+backend/**/*.log

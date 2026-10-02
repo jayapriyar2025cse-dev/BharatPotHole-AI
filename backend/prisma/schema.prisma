@@ -1,0 +1,69 @@
+// Prisma Schema — SIH26124 Urban Intelligence Platform
+// Database: SQLite (development). Switch to PostgreSQL for production.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// USER
+// Roles: ADMIN | ANALYST | DRIVER
+// ─────────────────────────────────────────────
+model User {
+  id         String      @id @default(uuid())
+  name       String
+  email      String      @unique
+  password   String      // Stored as bcrypt hash — never plain text
+  role       String      @default("DRIVER")
+  createdAt  DateTime    @default(now())
+
+  // Relations
+  detections Detection[]
+  vehicles   Vehicle[]
+}
+
+// ─────────────────────────────────────────────
+// VEHICLE (Bus / Fleet)
+// ─────────────────────────────────────────────
+model Vehicle {
+  id          String      @id @default(uuid())
+  busNumber   String      @unique
+  routeNumber String
+  driverId    String?     // Optional: linked to a User with role DRIVER
+  createdAt   DateTime    @default(now())
+
+  // Relations
+  driver      User?       @relation(fields: [driverId], references: [id])
+  detections  Detection[]
+}
+
+// ─────────────────────────────────────────────
+// DETECTION (Pothole Incident Record)
+// status: PENDING | REVIEWED | RESOLVED | FLAGGED
+// severity: LOW | MEDIUM | HIGH | CRITICAL
+// ─────────────────────────────────────────────
+model Detection {
+  id              String   @id @default(uuid())
+  imagePath       String   // Relative path in /uploads — not binary data
+  latitude        Float
+  longitude       Float
+  timestamp       DateTime @default(now())
+  potholeDetected Boolean  @default(false)
+  potholeCount    Int      @default(0)
+  confidence      Float?   // 0.0 – 1.0 from AI model
+  severity        String   @default("LOW")
+  status          String   @default("PENDING")
+  rawAiResponse   String?  // Full JSON from AI stored as text (for debugging)
+  vehicleId       String?
+  userId          String?  // Who submitted this detection
+  createdAt       DateTime @default(now())
+
+  // Relations
+  vehicle         Vehicle? @relation(fields: [vehicleId], references: [id])
+  user            User?    @relation(fields: [userId], references: [id])
+}
