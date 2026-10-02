@@ -1,0 +1,8 @@
+train/
+valid/
+test/
+yolo11n.pt
+runs/
+__pycache__/
+.venv/
+*.pyc

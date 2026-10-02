@@ -1,0 +1,25 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+# Environment
+.env
+.env.*
+
+# Database
+*.db
+*.db-journal
+
+# Uploads
+ai_module/backend/uploads/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log

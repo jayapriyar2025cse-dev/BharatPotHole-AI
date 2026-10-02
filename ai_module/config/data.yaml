@@ -1,0 +1,19 @@
+# Dataset configuration for the BharatPothole AI module.
+#
+# NOTE: Training reads from the DERIVED tree `dataset_clean`, produced by
+# scripts/prepare_dataset.py. That tree converts polygon label rows to plain
+# YOLO bboxes (the original export mixes both styles, which makes Ultralytics
+# fail). Image folders there are junctions -> no image data is duplicated.
+# The original dataset folder is NEVER modified by this module.
+#
+# All paths below are absolute, so this config works from any working
+# directory. If you move things, edit these three lines only.
+# Re-run after moving:  python scripts/prepare_dataset.py --src <new-src> --dst <new-dst>
+
+train: C:/Users/jayap/Downloads/BharatPot/BharatPotHole/ai_module/dataset_clean/train/images
+val: C:/Users/jayap/Downloads/BharatPot/BharatPotHole/ai_module/dataset_clean/valid/images
+test: C:/Users/jayap/Downloads/BharatPot/BharatPotHole/ai_module/dataset_clean/test/images
+
+nc: 1
+names: ['pothole']
+

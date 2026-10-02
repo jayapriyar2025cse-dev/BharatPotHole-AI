@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Urban Intelligence — AI-Powered Mobile Urban Intelligence Platform using Public Transport Fleet. Monitor and analyze road conditions using AI-powered pothole detection." />
+  <title>Urban Intelligence</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230B1220'/%3E%3Cg fill='none' stroke='%2338BDF8' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M5 9V6.5A1.5 1.5 0 0 1 6.5 5H9'/%3E%3Cpath d='M15 5h2.5A1.5 1.5 0 0 1 19 6.5V9'/%3E%3Cpath d='M19 15v2.5a1.5 1.5 0 0 1-1.5 1.5H15'/%3E%3Cpath d='M9 19H6.5A1.5 1.5 0 0 1 5 17.5V15'/%3E%3C/g%3E%3Ccircle cx='12' cy='12' r='3.4' fill='%2338BDF8'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script>
+    /* Auth gate — runs before first paint so the dashboard is never
+       visible without a session. Fails closed if storage is unreadable. */
+    try {
+      if (!localStorage.getItem("bharatpothole_token")) document.documentElement.classList.add("auth-gate");
+    } catch (e) {
+      document.documentElement.classList.add("auth-gate");
+    }
+  </script>
+</head>
+<body>
+  <noscript>
+    <div class="noscript">Urban Intelligence requires JavaScript to run AI road analyses. Please enable JavaScript and reload.</div>
+  </noscript>
+
+  <!-- ════════════════════════════════════════════════════════
+       Inline SVG icon sprite — professional icons, no libraries.
+       ════════════════════════════════════════════════════════ -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+    <symbol id="i-logo" viewBox="0 0 24 24">
+      <path d="M4 8.5V6.5A2.5 2.5 0 0 1 6.5 4h2" /><path d="M15.5 4h2A2.5 2.5 0 0 1 20 6.5v2" />
+      <path d="M20 15.5v2a2.5 2.5 0 0 1-2.5 2.5h-2" /><path d="M8.5 20h-2A2.5 2.5 0 0 1 4 17.5v-2" />
+      <circle cx="12" cy="12" r="5.2" /><circle cx="12" cy="12" r="1.9" fill="currentColor" stroke="none" />
+    </symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24">
+      <rect x="3" y="3" width="7.5" height="7.5" rx="1.6" /><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6" />
+      <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6" /><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6" />
+    </symbol>
+    <symbol id="i-scan" viewBox="0 0 24 24">
+      <path d="M3 8V6a3 3 0 0 1 3-3h2" /><path d="M16 3h3a3 3 0 0 1 3 3v2" />
+      <path d="M21 16v3a3 3 0 0 1-3 3h-3" /><path d="M8 21H6a3 3 0 0 1-3-3v-3" />
+      <circle cx="12" cy="12" r="3.4" /><path d="M12 10.4v3.2M10.4 12h3.2" />
+    </symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><polyline points="12 6.8 12 12 15.6 14" /></symbol>
+    <symbol id="i-map" viewBox="0 0 24 24">
+      <path d="M1.8 6.2 8.4 3l7.2 3.2L22.2 3v14.8L15.6 21l-7.2-3.2L1.8 21z" /><path d="M8.4 3v14.8" /><path d="M15.6 6.2V21" />
+    </symbol>
+    <symbol id="i-report" viewBox="0 0 24 24">
+      <path d="M14 2.8H6.5A1.7 1.7 0 0 0 4.8 4.5v15A1.7 1.7 0 0 0 6.5 21.2h11a1.7 1.7 0 0 0 1.7-1.7V7.8z" />
+      <polyline points="14 2.8 14 7.8 19 7.8" /><path d="M8.4 12.4h7.2M8.4 16h7.2M8.4 8.8h2.4" />
+    </symbol>
+    <symbol id="i-cpu" viewBox="0 0 24 24">
+      <rect x="5" y="5" width="14" height="14" rx="2.2" /><rect x="9.4" y="9.4" width="5.2" height="5.2" rx="1" />
+      <path d="M9.4 2.6v2.4M14.6 2.6v2.4M9.4 19v2.4M14.6 19v2.4M2.6 9.4H5M2.6 14.6H5M19 9.4h2.4M19 14.6h2.4" />
+    </symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24">
+      <path d="M9 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3" /><polyline points="16 17 21 12 16 7" /><path d="M21 12H9.5" />
+    </symbol>
+    <symbol id="i-login" viewBox="0 0 24 24">
+      <path d="M15 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3" /><polyline points="8 8 12 12 8 16" /><path d="M12 12H3.5" />
+    </symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2.6" y="4.8" width="18.8" height="14.4" rx="2.2" /><path d="m3.4 7.2 8.6 6 8.6-6" /></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.4" y="10.4" width="15.2" height="10.2" rx="2.2" /><path d="M8.2 10.4V7.6a3.8 3.8 0 0 1 7.6 0v2.8" /><path d="M12 14.6v2.4" /></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M1.8 12S5.6 5.2 12 5.2 22.2 12 22.2 12 18.4 18.8 12 18.8 1.8 12 1.8 12z" /><circle cx="12" cy="12" r="3" /></symbol>
+    <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M9.9 5.6A9.8 9.8 0 0 1 12 5.2c6.4 0 10.2 6.8 10.2 6.8a17.8 17.8 0 0 1-3.3 4.2M6.2 7.3A17.4 17.4 0 0 0 1.8 12s3.8 6.8 10.2 6.8a9.7 9.7 0 0 0 4-.85" /><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" /><path d="M3.2 3.2l17.6 17.6" /></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3.6" /><polyline points="16.5 7.6 12 3.1 7.5 7.6" /><path d="M12 3.4v12.4" /></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4.4" width="18" height="15.2" rx="2.2" /><circle cx="8.8" cy="9.6" r="1.7" /><path d="m3.6 17.4 4.8-4.4 4 3.4 3.2-2.8 4.8 4.2" /></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20.4 10.4c0 6.6-8.4 12-8.4 12s-8.4-5.4-8.4-12a8.4 8.4 0 0 1 16.8 0z" /><circle cx="12" cy="10.2" r="3.1" /></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M11.4 2.6 13 7l4.4 1.6L13 10.2l-1.6 4.4-1.6-4.4L5.4 8.6 9.8 7z" /><path d="M17.8 14.2l.9 2.5 2.5.9-2.5.9-.9 2.5-.9-2.5-2.5-.9 2.5-.9z" /><path d="M5.6 14.6l.7 1.9 1.9.7-1.9.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7z" /></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 20.4 9 3.6 6 12 2 12" /></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2.4 9.6 4.8L12 12 2.4 7.2z" /><path d="m2.4 12.6 9.6 4.8 9.6-4.8" /><path d="m2.4 17 9.6 4.8L21.6 17" /></symbol>
+    <symbol id="i-crosshair" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.8" /><path d="M22 12h-3.6M5.6 12H2M12 5.6V2M12 22v-3.6" /></symbol>
+    <symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="5.4" rx="8.4" ry="3" /><path d="M20.4 12c0 1.7-3.8 3-8.4 3s-8.4-1.3-8.4-3" /><path d="M3.6 5.4v13.2c0 1.7 3.8 3 8.4 3s8.4-1.3 8.4-3V5.4" /></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /><path d="M12 9.2v4.2M12 17.2h.01" /></symbol>
+    <symbol id="i-check-circle" viewBox="0 0 24 24"><path d="M21.6 11.1V12a9.6 9.6 0 1 1-5.7-8.8" /><polyline points="21.8 4.6 12 14.4 9 11.4" /></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><polyline points="4.6 12.6 9.6 17.6 19.4 6.6" /></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4" /></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24">
+      <path d="M3.8 6.2h16.4" /><path d="M8.8 6.2V4.9A1.7 1.7 0 0 1 10.5 3.2h3a1.7 1.7 0 0 1 1.7 1.7v1.3" />
+      <path d="M18.4 6.2l-.8 13.5a1.8 1.8 0 0 1-1.8 1.6H8.2a1.8 1.8 0 0 1-1.8-1.6L5.6 6.2" />
+      <path d="M10.2 10.4v6.4M13.8 10.4v6.4" />
+    </symbol>
+    <symbol id="i-chevron-left" viewBox="0 0 24 24"><polyline points="14.8 5.6 8.4 12l6.4 6.4" /></symbol>
+    <symbol id="i-chevron-right" viewBox="0 0 24 24"><polyline points="9.2 5.6 15.6 12l-6.4 6.4" /></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M3.6 6.6h16.8M3.6 12h16.8M3.6 17.4h16.8" /></symbol>
+    <symbol id="i-inbox" viewBox="0 0 24 24"><polyline points="21.6 12 15.6 12 13.8 15.2 10.2 15.2 8.4 12 2.4 12" /><path d="M5.7 5.1 2.4 12v5.6a2.2 2.2 0 0 0 2.2 2.2h14.8a2.2 2.2 0 0 0 2.2-2.2V12l-3.3-6.9A2.2 2.2 0 0 0 16.2 3.8H7.8a2.2 2.2 0 0 0-2.1 1.3z" /></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20.6 4.4v5h-5" /><path d="M3.4 19.6v-5h5" /><path d="M19.1 9.4A7.8 7.8 0 0 0 6.3 7L3.4 9.4M4.9 14.6a7.8 7.8 0 0 0 12.8 2.4l2.9-2.4" /></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.2" /><path d="M12 11v5.2M12 7.6h.01" /></symbol>
+  </svg>
+
+  <div class="app">
+    <!-- ═══════════════ LEFT SIDEBAR ═══════════════ -->
+    <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
+      <div class="brand">
+        <span class="brand-mark"><svg class="icon"><use href="#i-logo"></use></svg></span>
+        <span class="brand-text">
+          <strong>Urban Intelligence</strong>
+          <small>AI-Powered Mobile Urban Intelligence Platform using Public Transport Fleet</small>
+        </span>
+        <button class="icon-btn sidebar-close" id="sidebarClose" aria-label="Close navigation">
+          <svg class="icon"><use href="#i-x"></use></svg>
+        </button>
+      </div>
+
+      <nav class="nav">
+        <p class="nav-label">Workspace</p>
+        <button class="nav-item active" data-view="overview" aria-current="page">
+          <svg class="icon"><use href="#i-grid"></use></svg><span>Overview</span>
+        </button>
+        <button class="nav-item" data-view="detect">
+          <svg class="icon"><use href="#i-scan"></use></svg><span>Detect Pothole</span>
+          <span class="nav-pill">AI</span>
+        </button>
+        <button class="nav-item" data-view="history">
+          <svg class="icon"><use href="#i-clock"></use></svg><span>Detection History</span>
+        </button>
+        <p class="nav-label">Insights</p>
+        <button class="nav-item" data-view="intelligence">
+          <svg class="icon"><use href="#i-map"></use></svg><span>Road Intelligence</span>
+        </button>
+        <button class="nav-item" data-view="reports">
+          <svg class="icon"><use href="#i-report"></use></svg><span>Reports</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <!-- AI System Status — driven by real /health data -->
+        <div class="side-status">
+          <div class="side-status-row">
+            <span class="status-dot" id="sideAiDot"><i></i></span>
+            <span>AI System Status</span>
+          </div>
+          <strong id="sideAiLabel">Checking…</strong>
+        </div>
+        <div class="side-user" id="sideUser">
+          <span class="avatar avatar-sm" id="sideAvatar">?</span>
+          <span class="side-user-meta">
+            <strong id="sideUserName">Not signed in</strong>
+            <small id="sideUserEmail">Sign in to analyse roads</small>
+          </span>
+        </div>
+        <button class="btn btn-soft btn-block" id="sideAuthBtn">
+          <svg class="icon"><use href="#i-login"></use></svg><span>Sign in</span>
+        </button>
+      </div>
+    </aside>
+    <div class="sidebar-overlay" id="sidebarOverlay" hidden></div>
+    <!-- ═══════════════ MAIN COLUMN ═══════════════ -->
+    <div class="main">
+      <!-- TOP HEADER -->
+      <header class="topbar">
+        <button class="icon-btn menu-btn" id="menuBtn" aria-label="Open navigation">
+          <svg class="icon"><use href="#i-menu"></use></svg>
+        </button>
+        <div class="topbar-title">
+          <h1>Urban Intelligence Dashboard</h1>
+          <p>AI-Powered Mobile Urban Intelligence Platform using Public Transport Fleet</p>
+        </div>
+        <div class="topbar-right">
+          <!-- Backend status indicator (real GET /health) -->
+          <div class="status-chip" id="backendChip" title="Node.js backend health">
+            <span class="status-dot" id="backendDot"><i></i></span>
+            <span class="chip-key">Backend</span>
+            <strong id="backendLabel">Checking…</strong>
+          </div>
+          <!-- AI status indicator (real health.aiServiceEnabled) -->
+          <div class="status-chip" id="aiChip" title="AI detection service status">
+            <span class="status-dot" id="aiDot"><i></i></span>
+            <span class="chip-key">AI</span>
+            <strong id="aiLabel">Checking…</strong>
+          </div>
+          <!-- User profile -->
+          <div class="profile" id="profile">
+            <span class="avatar" id="profileAvatar">?</span>
+            <span class="profile-meta">
+              <strong id="profileName">Guest</strong>
+              <small id="profileRole">Not signed in</small>
+            </span>
+            <button class="btn btn-primary btn-sm" id="profileAuthBtn">
+              <svg class="icon"><use href="#i-login"></use></svg><span>Sign in</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- CONTENT VIEWS -->
+      <main class="content">
+        <!-- ── VIEW: OVERVIEW ── -->
+        <section class="view active" id="view-overview" data-view="overview" aria-label="Overview">
+          <div class="cards-grid">
+            <article class="metric-card">
+              <div class="metric-top">
+                <span class="metric-icon tone-blue"><svg class="icon"><use href="#i-database"></use></svg></span>
+                <span class="metric-tag">All time</span>
+              </div>
+              <p class="metric-label">Total Detections</p>
+              <p class="metric-value" id="statTotal">--</p>
+              <p class="metric-sub" id="statTotalSub">Awaiting live data</p>
+            </article>
+            <article class="metric-card">
+              <div class="metric-top">
+                <span class="metric-icon tone-cyan"><svg class="icon"><use href="#i-crosshair"></use></svg></span>
+                <span class="metric-tag">Defects</span>
+              </div>
+              <p class="metric-label">Potholes Detected</p>
+              <p class="metric-value" id="statPotholes">--</p>
+              <p class="metric-sub" id="statPotholesSub">Awaiting live data</p>
+            </article>
+            <article class="metric-card">
+              <div class="metric-top">
+                <span class="metric-icon tone-red"><svg class="icon"><use href="#i-alert"></use></svg></span>
+                <span class="metric-tag">Severity</span>
+              </div>
+              <p class="metric-label">Critical Issues</p>
+              <p class="metric-value" id="statCritical">--</p>
+              <p class="metric-sub" id="statCriticalSub">Awaiting live data</p>
+            </article>
+            <article class="metric-card">
+              <div class="metric-top">
+                <span class="metric-icon tone-cyan"><svg class="icon"><use href="#i-activity"></use></svg></span>
+                <span class="metric-tag">Model</span>
+              </div>
+              <p class="metric-label">AI Confidence</p>
+              <p class="metric-value" id="statConfidence">--</p>
+              <p class="metric-sub" id="statConfidenceSub">Awaiting live data</p>
+            </article>
+          </div>
+
+          <p class="inline-hint" id="statsHint" hidden>
+            <svg class="icon"><use href="#i-info"></use></svg>
+            <span>Sign in with your department account to load live statistics.</span>
+            <button class="link-btn" id="statsHintBtn">Sign in</button>
+          </p>
+
+          <!-- The AI Road Analysis workspace mounts here (moved between views, never duplicated) -->
+          <div class="workspace-slot" data-workspace-slot="overview">
+            <div class="workspace" id="analysisWorkspace">
+              <!-- ═══ AI ROAD ANALYSIS CARD ═══ -->
+              <section class="card analysis-card">
+                <header class="card-head">
+                  <div class="card-title">
+                    <span class="card-icon"><svg class="icon"><use href="#i-scan"></use></svg></span>
+                    <div>
+                      <h2>AI Road Analysis</h2>
+                      <p>Upload a clear road image for pothole detection.</p>
+                    </div>
+                  </div>
+                  <span class="badge badge-accent" id="analysisModeBadge">Checking AI…</span>
+                </header>
+
+                <div class="analysis-grid">
+                  <!-- IMAGE UPLOAD AREA -->
+                  <div class="upload-col">
+                    <div class="upload-zone" id="uploadZone" tabindex="0" role="button" aria-label="Upload road image">
+                      <input type="file" id="imageInput" accept=".jpg,.jpeg,.png,image/jpeg,image/png" hidden />
+                      <div class="upload-idle" id="uploadIdle">
+                        <span class="upload-icon">
+                          <svg class="icon"><use href="#i-upload"></use></svg>
+                        </span>
+                        <h3>Upload Road Image</h3>
+                        <p>Drop an image here or <span class="upload-link">browse from your computer</span></p>
+                        <span class="upload-formats">JPG · JPEG · PNG — max 10 MB</span>
+                      </div>
+                      <div class="upload-preview" id="uploadPreview" hidden>
+                        <img id="previewImg" alt="Selected road image preview" />
+                        <div class="preview-meta">
+                          <span class="preview-file">
+                            <svg class="icon"><use href="#i-image"></use></svg>
+                            <span id="fileName">image.jpg</span>
+                          </span>
+                          <span class="preview-size" id="fileSize"></span>
+                        </div>
+                        <div class="preview-actions">
+                          <button type="button" class="btn btn-soft btn-xs" id="replaceBtn">Replace</button>
+                          <button type="button" class="btn btn-soft btn-xs" id="removeBtn">Remove</button>
+                        </div>
+                      </div>
+                    </div>
+                    <p class="field-error" id="imageError" hidden></p>
+                  </div>
+
+                  <!-- LOCATION INPUTS + ANALYZE -->
+                  <div class="form-col">
+                    <div class="field-row">
+                      <label class="field" for="latitudeInput">
+                        <span class="field-label">Latitude</span>
+                        <span class="input-wrap">
+                          <svg class="icon"><use href="#i-pin"></use></svg>
+                          <input type="text" id="latitudeInput" inputmode="decimal" autocomplete="off" value="11.0168" />
+                        </span>
+                      </label>
+                      <label class="field" for="longitudeInput">
+                        <span class="field-label">Longitude</span>
+                        <span class="input-wrap">
+                          <svg class="icon"><use href="#i-pin"></use></svg>
+                          <input type="text" id="longitudeInput" inputmode="decimal" autocomplete="off" value="76.9558" />
+                        </span>
+                      </label>
+                    </div>
+                    <button type="button" class="btn btn-soft btn-sm geo-btn" id="useLocationBtn">
+                      <svg class="icon"><use href="#i-crosshair"></use></svg>
+                      <span>Use Current Location</span>
+                    </button>
+                    <p class="field-error" id="locationError" hidden></p>
+
+                    <button class="btn btn-primary btn-lg btn-block" id="analyzeBtn" type="button">
+                      <svg class="icon btn-lead"><use href="#i-sparkles"></use></svg>
+                      <span id="analyzeBtnText">Analyze Road Condition</span>
+                      <span class="btn-spinner" id="analyzeSpinner" hidden></span>
+                    </button>
+
+                    <ul class="analysis-notes">
+                      <li><svg class="icon"><use href="#i-check"></use></svg><span>Images are analysed by the connected AI detection service.</span></li>
+                      <li><svg class="icon"><use href="#i-check"></use></svg><span>Every result is stored securely in your department dashboard.</span></li>
+                    </ul>
+
+                    <p class="auth-note" id="authNote" hidden>
+                      <svg class="icon"><use href="#i-lock"></use></svg>
+                      <span>Sign in before running an analysis.</span>
+                      <button type="button" class="link-btn" id="authNoteBtn">Sign in</button>
+                    </p>
+                  </div>
+                </div>
+              </section>
+              <!-- ═══ AI RESULT PANEL (hidden until analysis completes) ═══ -->
+              <section class="card result-card" id="resultCard" hidden aria-live="polite">
+                <header class="card-head">
+                  <div class="card-title">
+                    <span class="card-icon tone-green"><svg class="icon"><use href="#i-check-circle"></use></svg></span>
+                    <div>
+                      <h2>AI Detection Result</h2>
+                      <p id="resultSubtitle">Analysis completed successfully.</p>
+                    </div>
+                  </div>
+                  <span class="badge badge-success" id="resultStatusBadge">Complete</span>
+                </header>
+
+                <div class="result-grid">
+                  <!-- Uploaded image beside the result -->
+                  <figure class="image-frame">
+                    <span class="frame-corner tl"></span><span class="frame-corner tr"></span>
+                    <span class="frame-corner bl"></span><span class="frame-corner br"></span>
+                    <img id="resultImage" alt="Analysed road surface" />
+                    <figcaption class="frame-caption">
+                      <span class="frame-chip"><svg class="icon"><use href="#i-image"></use></svg>Source image</span>
+                      <span class="frame-chip" id="resultFrameTime">—</span>
+                    </figcaption>
+                  </figure>
+
+                  <div class="result-summary">
+                    <div class="detected-banner" id="detectedBanner">
+                      <div class="banner-main">
+                        <span class="banner-label">Pothole Detected</span>
+                        <strong class="banner-value" id="detectedValue">—</strong>
+                      </div>
+                      <div class="banner-severity">
+                        <span class="banner-label">Severity</span>
+                        <strong class="severity-badge" id="severityBadge">—</strong>
+                      </div>
+                    </div>
+
+                    <div class="summary-grid">
+                      <div class="summary-tile">
+                        <span class="tile-icon"><svg class="icon"><use href="#i-layers"></use></svg></span>
+                        <div><small>Pothole Count</small><strong id="resultCount">—</strong></div>
+                      </div>
+                      <div class="summary-tile">
+                        <span class="tile-icon"><svg class="icon"><use href="#i-activity"></use></svg></span>
+                        <div><small>Confidence</small><strong id="resultConfidence">—</strong></div>
+                      </div>
+                      <div class="summary-tile">
+                        <span class="tile-icon"><svg class="icon"><use href="#i-cpu"></use></svg></span>
+                        <div><small>AI Source</small><strong id="resultSource">—</strong></div>
+                      </div>
+                      <div class="summary-tile">
+                        <span class="tile-icon"><svg class="icon"><use href="#i-clock"></use></svg></span>
+                        <div><small>Timestamp</small><strong id="resultTimestamp">—</strong></div>
+                      </div>
+                      <div class="summary-tile">
+                        <span class="tile-icon"><svg class="icon"><use href="#i-pin"></use></svg></span>
+                        <div><small>Latitude</small><strong id="resultLat">—</strong></div>
+                      </div>
+                      <div class="summary-tile">
+                        <span class="tile-icon"><svg class="icon"><use href="#i-pin"></use></svg></span>
+                        <div><small>Longitude</small><strong id="resultLng">—</strong></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- DETECTION DETAILS — rows come from API detections[] (never invented) -->
+                <div class="details-block" id="detailsBlock">
+                  <div class="block-head">
+                    <h3>Detection Details</h3>
+                    <span class="badge badge-soft" id="detailsCount">0 objects</span>
+                  </div>
+                  <div class="table-wrap" id="detectionsTableWrap">
+                    <table class="data-table">
+                      <thead>
+                        <tr><th class="col-num">#</th><th>Class</th><th>Confidence</th><th>Bounding Box</th></tr>
+                      </thead>
+                      <tbody id="detectionsBody"></tbody>
+                    </table>
+                  </div>
+                  <div class="empty-state compact" id="detectionsEmpty" hidden>
+                    <span class="empty-icon"><svg class="icon"><use href="#i-check-circle"></use></svg></span>
+                    <h4>No potholes detected</h4>
+                    <p>The model did not find any road defects in this image.</p>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── VIEW: DETECT POTHOLE ── -->
+        <section class="view" id="view-detect" data-view="detect" aria-label="Detect pothole" hidden>
+          <div class="page-intro">
+            <h2>Detect Pothole</h2>
+            <p>Run AI road analysis on a street image with precise GPS coordinates.</p>
+          </div>
+          <div class="workspace-slot" data-workspace-slot="detect"></div>
+        </section>
+        <!-- ── VIEW: DETECTION HISTORY (live data from GET /api/detections) ── -->
+        <section class="view" id="view-history" data-view="history" aria-label="Detection history" hidden>
+          <div class="page-intro">
+            <h2>Detection History</h2>
+            <p>Review every AI road analysis recorded by your team.</p>
+          </div>
+
+          <!-- Shown when the user is not signed in -->
+          <div class="card gate-card" id="historyGate" hidden>
+            <span class="gate-icon"><svg class="icon"><use href="#i-lock"></use></svg></span>
+            <h3>Sign in required</h3>
+            <p>Detection history is available to authenticated department users.</p>
+            <button class="btn btn-primary" id="historyGateBtn">
+              <svg class="icon"><use href="#i-login"></use></svg><span>Sign in</span>
+            </button>
+          </div>
+
+          <div class="card history-card" id="historyCard" hidden>
+            <header class="card-head">
+              <div class="card-title">
+                <span class="card-icon"><svg class="icon"><use href="#i-clock"></use></svg></span>
+                <div>
+                  <h2>Detection History</h2>
+                  <p id="historySummary">Loading records…</p>
+                </div>
+              </div>
+              <button class="btn btn-soft btn-sm" id="historyRefreshBtn">
+                <svg class="icon"><use href="#i-refresh"></use></svg><span>Refresh</span>
+              </button>
+            </header>
+
+            <div class="table-wrap">
+              <table class="data-table history-table">
+                <thead>
+                  <tr>
+                    <th>Image</th><th>Timestamp</th><th>Location</th>
+                    <th>Potholes</th><th>Confidence</th><th>Severity</th><th>Status</th>
+                    <th id="historyActionsTh" hidden>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="historyBody"></tbody>
+              </table>
+            </div>
+
+            <div class="empty-state" id="historyEmpty" hidden>
+              <span class="empty-icon"><svg class="icon"><use href="#i-inbox"></use></svg></span>
+              <h4>No detections yet</h4>
+              <p>Run your first AI road analysis and it will appear here.</p>
+            </div>
+
+            <div class="empty-state error-state" id="historyError" hidden>
+              <span class="empty-icon"><svg class="icon"><use href="#i-alert"></use></svg></span>
+              <h4>Could not load history</h4>
+              <p id="historyErrorMessage">Something went wrong while fetching records.</p>
+              <button class="btn btn-soft btn-sm" id="historyRetryBtn">
+                <svg class="icon"><use href="#i-refresh"></use></svg><span>Try again</span>
+              </button>
+            </div>
+
+            <div class="loading-state" id="historyLoading" hidden>
+              <span class="spinner"></span><span>Loading records…</span>
+            </div>
+
+            <footer class="table-footer" id="historyPagination" hidden>
+              <span class="page-info" id="historyPageInfo">Page 1 of 1</span>
+              <div class="page-actions">
+                <button class="btn btn-soft btn-xs" id="historyPrevBtn" disabled>
+                  <svg class="icon"><use href="#i-chevron-left"></use></svg><span>Prev</span>
+                </button>
+                <button class="btn btn-soft btn-xs" id="historyNextBtn" disabled>
+                  <span>Next</span><svg class="icon"><use href="#i-chevron-right"></use></svg>
+                </button>
+              </div>
+            </footer>
+          </div>
+        </section>
+
+        <!-- ── VIEW: ROAD INTELLIGENCE (real data: GET /api/dashboard/stats + GET /api/detections) ── -->
+        <section class="view" id="view-intelligence" data-view="intelligence" aria-label="Road intelligence" hidden>
+          <div class="page-intro">
+            <h2>Road Intelligence</h2>
+            <p>Spatial and temporal insights derived from real detection records.</p>
+          </div>
+
+          <div class="loading-state" id="intelLoading" hidden>
+            <span class="spinner"></span><span>Loading intelligence…</span>
+          </div>
+
+          <div class="empty-state" id="intelEmpty" hidden>
+            <span class="empty-icon"><svg class="icon"><use href="#i-map"></use></svg></span>
+            <h4>No sufficient detection data yet.</h4>
+            <p>Run AI road analyses to start seeing network-wide intelligence.</p>
+          </div>
+
+          <div id="intelContent" hidden>
+            <div class="cards-grid">
+              <article class="metric-card">
+                <div class="metric-top">
+                  <span class="metric-icon tone-blue"><svg class="icon"><use href="#i-database"></use></svg></span>
+                  <span class="metric-tag">All time</span>
+                </div>
+                <p class="metric-label">Total Detections</p>
+                <p class="metric-value" id="intelTotal">—</p>
+                <p class="metric-sub">Recorded by the fleet</p>
+              </article>
+              <article class="metric-card">
+                <div class="metric-top">
+                  <span class="metric-icon tone-cyan"><svg class="icon"><use href="#i-crosshair"></use></svg></span>
+                  <span class="metric-tag">Defects</span>
+                </div>
+                <p class="metric-label">Total Potholes</p>
+                <p class="metric-value" id="intelPotholes">—</p>
+                <p class="metric-sub">Individual defects found</p>
+              </article>
+              <article class="metric-card">
+                <div class="metric-top">
+                  <span class="metric-icon tone-red"><svg class="icon"><use href="#i-alert"></use></svg></span>
+                  <span class="metric-tag">Severity</span>
+                </div>
+                <p class="metric-label">High / Critical</p>
+                <p class="metric-value" id="intelHighCrit">—</p>
+                <p class="metric-sub">Detections needing attention</p>
+              </article>
+              <article class="metric-card">
+                <div class="metric-top">
+                  <span class="metric-icon tone-cyan"><svg class="icon"><use href="#i-activity"></use></svg></span>
+                  <span class="metric-tag">Model</span>
+                </div>
+                <p class="metric-label">Average Confidence</p>
+                <p class="metric-value" id="intelConfidence">—</p>
+                <p class="metric-sub" id="intelConfidenceSub">Across analysed records</p>
+              </article>
+            </div>
+
+            <div class="split-panels">
+              <section class="card">
+                <header class="card-head">
+                  <div class="card-title">
+                    <span class="card-icon"><svg class="icon"><use href="#i-pin"></use></svg></span>
+                    <div>
+                      <h2>Potential Pothole Hotspots</h2>
+                      <p>Repeated detections within ~330 m of each other</p>
+                    </div>
+                  </div>
+                </header>
+                <div class="list-rows" id="intelHotspots"></div>
+                <div class="empty-state compact" id="intelHotspotsEmpty" hidden>
+                  <span class="empty-icon"><svg class="icon"><use href="#i-pin"></use></svg></span>
+                  <h4>No repeated detection areas yet</h4>
+                  <p>Hotspots appear once several detections are recorded at nearby coordinates.</p>
+                </div>
+              </section>
+
+              <section class="card">
+                <header class="card-head">
+                  <div class="card-title">
+                    <span class="card-icon"><svg class="icon"><use href="#i-clock"></use></svg></span>
+                    <div>
+                      <h2>Recent Detection Locations</h2>
+                      <p id="intelRecentSub">Newest GPS coordinates on record</p>
+                    </div>
+                  </div>
+                </header>
+                <div class="list-rows" id="intelRecent"></div>
+              </section>
+            </div>
+          </div>
+
+          <div class="empty-state error-state" id="intelError" hidden>
+            <span class="empty-icon"><svg class="icon"><use href="#i-alert"></use></svg></span>
+            <h4>Could not load intelligence</h4>
+            <p id="intelErrorMessage">Something went wrong while fetching detection data.</p>
+            <button class="btn btn-soft btn-sm" id="intelRetryBtn">
+              <svg class="icon"><use href="#i-refresh"></use></svg><span>Try again</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- ── VIEW: REPORTS (real data from GET /api/dashboard/stats + GET /api/detections) ── -->
+        <section class="view" id="view-reports" data-view="reports" aria-label="Reports" hidden>
+          <div class="page-intro">
+            <h2>Reports</h2>
+            <p>Export-ready summaries generated from real detection data.</p>
+          </div>
+
+          <div class="loading-state" id="reportLoading" hidden>
+            <span class="spinner"></span><span>Loading report data…</span>
+          </div>
+
+          <div class="empty-state" id="reportEmpty" hidden>
+            <span class="empty-icon"><svg class="icon"><use href="#i-report"></use></svg></span>
+            <h4>No sufficient detection data yet.</h4>
+            <p>Once road analyses are recorded, summary reports appear here.</p>
+          </div>
+
+          <div id="reportContent" hidden>
+            <div class="cards-grid">
+              <article class="metric-card">
+                <div class="metric-top">
+                  <span class="metric-icon tone-blue"><svg class="icon"><use href="#i-database"></use></svg></span>
+                  <span class="metric-tag">All time</span>
+                </div>
+                <p class="metric-label">Total Detections</p>
+                <p class="metric-value" id="reportTotal">—</p>
+                <p class="metric-sub">Analyses on record</p>
+              </article>
+              <article class="metric-card">
+                <div class="metric-top">
+                  <span class="metric-icon tone-cyan"><svg class="icon"><use href="#i-crosshair"></use></svg></span>
+                  <span class="metric-tag">Defects</span>
+                </div>
+                <p class="metric-label">Total Potholes</p>
+                <p class="metric-value" id="reportPotholes">—</p>
+                <p class="metric-sub">Individual defects found</p>
+              </article>
+              <article class="metric-card">
+                <div class="metric-top">
+                  <span class="metric-icon tone-blue"><svg class="icon"><use href="#i-pin"></use></svg></span>
+                  <span class="metric-tag">Coverage</span>
+                </div>
+                <p class="metric-label">Detection Locations</p>
+                <p class="metric-value" id="reportLocations">—</p>
+                <p class="metric-sub">Unique GPS coordinates</p>
+              </article>
+              <article class="metric-card">
+                <div class="metric-top">
+                  <span class="metric-icon tone-cyan"><svg class="icon"><use href="#i-clock"></use></svg></span>
+                  <span class="metric-tag">Last 7 days</span>
+                </div>
+                <p class="metric-label">Recent Activity</p>
+                <p class="metric-value" id="reportRecent">—</p>
+                <p class="metric-sub">Detections this week</p>
+              </article>
+            </div>
+
+            <div class="split-panels">
+              <section class="card">
+                <header class="card-head">
+                  <div class="card-title">
+                    <span class="card-icon"><svg class="icon"><use href="#i-layers"></use></svg></span>
+                    <div>
+                      <h2>Severity Distribution</h2>
+                      <p>Share of detections per severity level</p>
+                    </div>
+                  </div>
+                </header>
+                <div class="list-rows sev-dist" id="reportSeverity"></div>
+              </section>
+
+              <section class="card">
+                <header class="card-head">
+                  <div class="card-title">
+                    <span class="card-icon"><svg class="icon"><use href="#i-pin"></use></svg></span>
+                    <div>
+                      <h2>Detection Locations</h2>
+                      <p>Coordinates grouped by exact GPS position</p>
+                    </div>
+                  </div>
+                </header>
+                <div class="list-rows" id="reportLocationList"></div>
+                <div class="empty-state compact" id="reportLocationsEmpty" hidden>
+                  <span class="empty-icon"><svg class="icon"><use href="#i-pin"></use></svg></span>
+                  <h4>No locations recorded</h4>
+                  <p>Locations appear once detections include GPS coordinates.</p>
+                </div>
+              </section>
+            </div>
+
+            <section class="card panel-spacer">
+              <header class="card-head">
+                <div class="card-title">
+                  <span class="card-icon"><svg class="icon"><use href="#i-clock"></use></svg></span>
+                  <div>
+                    <h2>Recent Activity</h2>
+                    <p>Latest detection events on record</p>
+                  </div>
+                </div>
+              </header>
+              <div class="list-rows" id="reportActivity"></div>
+            </section>
+          </div>
+
+          <div class="empty-state error-state" id="reportError" hidden>
+            <span class="empty-icon"><svg class="icon"><use href="#i-alert"></use></svg></span>
+            <h4>Could not load report data</h4>
+            <p id="reportErrorMessage">Something went wrong while fetching detection data.</p>
+            <button class="btn btn-soft btn-sm" id="reportRetryBtn">
+              <svg class="icon"><use href="#i-refresh"></use></svg><span>Try again</span>
+            </button>
+          </div>
+        </section>
+      </main>
+    </div>
+    <!-- ═══════════════ LOGIN MODAL ═══════════════ -->
+    <div class="modal-overlay" id="loginModal" hidden>
+      <div class="modal card" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+        <button class="icon-btn modal-close" id="loginCloseBtn" aria-label="Close sign in">
+          <svg class="icon"><use href="#i-x"></use></svg>
+        </button>
+        <span class="modal-mark"><svg class="icon"><use href="#i-logo"></use></svg></span>
+        <p class="modal-brand">Urban Intelligence</p>
+        <h2 id="loginTitle">Welcome</h2>
+        <p class="modal-sub" id="loginSubtitle">AI-Powered Mobile Urban Intelligence Platform using Public Transport Fleet</p>
+
+        <form id="loginForm" novalidate>
+          <label class="field" for="loginEmail">
+            <span class="field-label">Email address</span>
+            <span class="input-wrap">
+              <svg class="icon"><use href="#i-mail"></use></svg>
+              <input type="email" id="loginEmail" placeholder="name@department.gov" autocomplete="username" required />
+            </span>
+          </label>
+          <label class="field" for="loginPassword">
+            <span class="field-label">Password</span>
+            <span class="input-wrap">
+              <svg class="icon"><use href="#i-lock"></use></svg>
+              <input type="password" id="loginPassword" placeholder="Enter your password" autocomplete="current-password" required />
+              <button type="button" class="input-action" id="togglePassword" aria-label="Show password">
+                <svg class="icon"><use href="#i-eye"></use></svg>
+              </button>
+            </span>
+          </label>
+
+          <p class="form-error" id="loginError" hidden>
+            <svg class="icon"><use href="#i-alert"></use></svg><span></span>
+          </p>
+
+          <button class="btn btn-primary btn-lg btn-block" type="submit" id="loginBtn">
+            <span id="loginBtnText">Sign in</span>
+            <span class="btn-spinner" id="loginSpinner" hidden></span>
+          </button>
+        </form>
+
+        <p class="modal-foot">
+          <svg class="icon"><use href="#i-lock"></use></svg>
+          <span>Secured access via your organisation account.</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- ═══════════════ DELETE CONFIRMATION DIALOG ═══════════════ -->
+    <div class="modal-overlay" id="deleteModal" hidden>
+      <div class="modal card confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="deleteConfirmTitle">
+        <span class="modal-mark danger"><svg class="icon"><use href="#i-trash"></use></svg></span>
+        <h2 id="deleteConfirmTitle">Delete this detection?</h2>
+        <p class="modal-sub">The detection record and its stored image will be permanently removed. This action cannot be undone.</p>
+        <div class="confirm-actions">
+          <button class="btn btn-soft" id="deleteCancelBtn" type="button">Cancel</button>
+          <button class="btn btn-danger" id="deleteConfirmBtn" type="button">
+            <svg class="icon"><use href="#i-trash"></use></svg><span>Delete</span>
+            <span class="btn-spinner" id="deleteSpinner" hidden></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ TOAST NOTIFICATIONS ═══════════════ -->
+    <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
