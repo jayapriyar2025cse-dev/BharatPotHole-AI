@@ -5,3 +5,13 @@ __pycache__/
 *.pyc
 reports/
 samples/
+
+# Backend local dependencies and private files
+backend/node_modules/
+backend/.env
+backend/.env.*
+!backend/.env.example
+backend/uploads/
+backend/**/*.log
+backend/*.db
+backend/**/*.db
