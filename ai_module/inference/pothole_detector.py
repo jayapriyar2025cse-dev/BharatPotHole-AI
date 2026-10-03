@@ -52,7 +52,7 @@ class PotholeDetector:
     def __init__(
         self,
         model_path: Union[str, Path] = DEFAULT_MODEL_PATH,
-        conf_threshold: float = 0.25,
+        conf_threshold: float = 0.08,
         iou_threshold: float = 0.45,
         device: str | None = None,
         max_det: int = 100,
@@ -89,6 +89,7 @@ class PotholeDetector:
         results = self.model.predict(
             source=image,
             conf=self.conf_threshold,
+            imgsz=1280,
             iou=self.iou_threshold,
             max_det=self.max_det,
             device=self.device,

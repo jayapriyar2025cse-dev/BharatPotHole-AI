@@ -32,3 +32,8 @@ backend/uploads/
 # Logs
 *.log
 backend/**/*.log
+
+# Local dataset and model artifacts
+dataset_download/
+yolo11n.pt
+ai_module/best_demo_backup.pt
