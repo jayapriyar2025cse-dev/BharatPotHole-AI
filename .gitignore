@@ -37,3 +37,9 @@ backend/**/*.log
 dataset_download/
 yolo11n.pt
 ai_module/best_demo_backup.pt
+
+ai_module/backend/login.json
+ai_module/test.jpg
+bp_yolo_result.png
+
+ai_module/inference.py

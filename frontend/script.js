@@ -593,6 +593,7 @@ function setFile(file) {
   $("#uploadIdle").hidden = true;
   $("#uploadPreview").hidden = false;
   showImageError("");
+  console.log("[upload] file selected:", file.name, `(${formatBytes(file.size)})`);
 }
 
 function clearFile() {
@@ -762,11 +763,19 @@ async function runAnalysis() {
     formData.append("latitude", String(coords.lat));
     formData.append("longitude", String(coords.lng));
 
+    console.log("[analyze] request started:", {
+      filename: state.file.name,
+      latitude: coords.lat,
+      longitude: coords.lng,
+    });
+
     const json = await apiFetch("/api/detections/analyze", {
       method: "POST",
       body: formData,
       isForm: true,
     });
+
+    console.log("[analyze] AI response received:", json);
 
     const detection = json?.data?.detection;
     if (!detection) throw new ApiError("The server returned an unexpected response.", "api");
@@ -825,12 +834,13 @@ function renderResult(detection) {
   $("#resultLat").textContent = detection.latitude ?? "—";
   $("#resultLng").textContent = detection.longitude ?? "—";
 
-  // Image frame (uploaded preview; no bounding boxes are drawn or invented)
+  // Image frame — the uploaded preview with REAL YOLO boxes overlaid
   const img = $("#resultImage");
   if (state.previewUrl) img.src = state.previewUrl;
   else if (detection.imageUrl) img.src = detection.imageUrl;
   else img.removeAttribute("src");
   $("#resultFrameTime").textContent = formatDate(detection.timestamp, true);
+  drawResultBoxes(img, detection);
 
   renderDetectionDetails(detection);
   resultCard.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -861,6 +871,91 @@ function formatBBox(bbox) {
   const parts = bbox.map((v) => (Number.isFinite(Number(v)) ? Number(v).toFixed(2) : String(v)));
   return `[${parts.join(", ")}]`;
 }
+
+/* ══════════════ BOUNDING BOX OVERLAY (real YOLO boxes only) ══════════════
+   Every box drawn here comes from detection.detections — the actual YOLO
+   pixel coordinates returned by the AI service. Nothing is invented.
+   Mapping uses the same "cover" math as object-fit: cover so boxes line up
+   with the displayed (possibly cropped) image. */
+let lastBoxRender = null;
+
+function drawResultBoxes(img, detection) {
+  lastBoxRender = { img, detection };
+  img.onload = () => paintResultBoxes(); // draw once pixels are available
+  paintResultBoxes(); // immediate draw when the image is already cached
+}
+
+function paintResultBoxes() {
+  const canvas = $("#resultBoxes");
+  if (!canvas || !lastBoxRender) return;
+
+  const { img, detection } = lastBoxRender;
+  const frame = canvas.parentElement; // .image-frame
+  if (!frame || frame.contains(img) === false) return;
+
+  const items = (Array.isArray(detection.detections) ? detection.detections : [])
+    .map(normalizeDetectionItem)
+    .filter((item) => item.bbox);
+
+  const rect = frame.getBoundingClientRect();
+  const imgRect = img.getBoundingClientRect();
+  const natW = img.naturalWidth;
+  const natH = img.naturalHeight;
+
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.max(1, Math.round(rect.width * dpr));
+  canvas.height = Math.max(1, Math.round(rect.height * dpr));
+
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, rect.width, rect.height);
+
+  if (!natW || !natH || items.length === 0 || !imgRect.width || !imgRect.height) return;
+
+  // object-fit: cover → image fills the box, overflow is cropped equally
+  const scale = Math.max(imgRect.width / natW, imgRect.height / natH);
+  const offsetX = imgRect.left - rect.left + (imgRect.width - natW * scale) / 2;
+  const offsetY = imgRect.top - rect.top + (imgRect.height - natH * scale) / 2;
+
+  const fontSize = Math.max(11, Math.round(natW * scale * 0.018));
+  const lineW = Math.max(2, Math.round(natW * scale * 0.0035));
+  ctx.lineWidth = lineW;
+  ctx.font = `600 ${fontSize}px Inter, sans-serif`;
+  ctx.textBaseline = "middle";
+  const labelH = fontSize + 8;
+  const padX = 6;
+
+  items.forEach((item, index) => {
+    const coords = item.bbox.map(Number);
+    if (!coords.every(Number.isFinite)) return;
+
+    const left = Math.max(0, offsetX + coords[0] * scale);
+    const top = Math.max(0, offsetY + coords[1] * scale);
+    const right = Math.min(rect.width, offsetX + coords[2] * scale);
+    const bottom = Math.min(rect.height, offsetY + coords[3] * scale);
+
+    ctx.strokeStyle = "#22d3ee";
+    ctx.strokeRect(left, top, right - left, bottom - top);
+
+    // Labels for the highest-confidence detections (boxes are sorted best
+    // first) — labels on all 57 boxes would be unreadable.
+    if (index < 10) {
+      const label = `#${index + 1} ${item.className} ${formatPercent(item.confidence)}`;
+      const textW = ctx.measureText(label).width;
+      const labelY = top > labelH + 2 ? top - labelH - 2 : Math.min(top + 2, rect.height - labelH);
+      ctx.fillStyle = "rgba(2, 6, 16, 0.88)";
+      ctx.fillRect(left, labelY, textW + padX * 2, labelH);
+      ctx.fillStyle = "#22d3ee";
+      ctx.fillText(label, left + padX, labelY + labelH / 2 + 1);
+    }
+  });
+}
+
+// Keep boxes aligned when the layout resizes
+window.addEventListener("resize", () => {
+  if (lastBoxRender && $("#resultCard") && !$("#resultCard").hidden) paintResultBoxes();
+});
+
 
 function renderDetectionDetails(detection) {
   const items = (Array.isArray(detection.detections) ? detection.detections : []).map(normalizeDetectionItem);

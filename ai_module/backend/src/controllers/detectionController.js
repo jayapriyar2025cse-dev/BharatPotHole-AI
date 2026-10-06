@@ -34,6 +34,12 @@ const analyzeDetection = async (req, res) => {
       return sendError(res, 400, 'An image file is required. Upload a JPEG or PNG.');
     }
 
+    console.log(
+      '[analyze] received upload:',
+      req.file.originalname,
+      `(${req.file.size} bytes)`
+    );
+
     const { latitude, longitude, timestamp, vehicleId } = req.body;
 
     // 2. Validate GPS coordinates
@@ -99,11 +105,25 @@ const analyzeDetection = async (req, res) => {
         // Return bounding boxes from AI for the mobile app to display
         detections: aiResult.detections,
         aiSource: aiResult.source, // 'mock' or 'yolo'
+        // Preserved AI metadata (requirement: never drop these)
+        confidences: aiResult.confidences ?? [],
+        imageSize: aiResult.imageSize ?? null,
+        confidenceThreshold: aiResult.confidenceThreshold ?? null,
+        model: aiResult.model ?? null,
+        latencyMs: aiResult.latencyMs ?? null,
       },
     });
   } catch (error) {
     console.error('[detectionController.analyzeDetection]', error);
-    return sendError(res, 500, 'Detection analysis failed.', error.message);
+    // aiService marks friendly errors with publicMessage/statusCode so the
+    // frontend can show "AI service unavailable" / "Invalid image" /
+    // "AI analysis failed" instead of a silent NO.
+    return sendError(
+      res,
+      error.statusCode || 500,
+      error.publicMessage || 'Detection analysis failed.',
+      error.message
+    );
   }
 };
 
