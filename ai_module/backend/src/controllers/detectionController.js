@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const prisma = require('../config/database');
 const { analyzeImage } = require('../services/aiService');
-const { getSeverity, VALID_STATUSES } = require('../utils/severity');
+const { getSeverity, VALID_STATUSES, STATUS_TRANSITIONS } = require('../utils/severity');
 const { sendSuccess, sendError } = require('../utils/response');
 
 /**
@@ -132,7 +132,7 @@ const analyzeDetection = async (req, res) => {
  * Get all detection records with optional filters.
  * Query params:
  *   - vehicleId  — filter by vehicle
- *   - status     — PENDING | REVIEWED | RESOLVED | FLAGGED
+ *   - status     — PENDING | VERIFIED | REJECTED | RESOLVED
  *   - severity   — LOW | MEDIUM | HIGH | CRITICAL
  *   - startDate  — ISO date string
  *   - endDate    — ISO date string
@@ -230,7 +230,11 @@ const getDetectionById = async (req, res) => {
 
 /**
  * PATCH /api/detections/:id/status
- * Update the review status of a detection. (Admin/Analyst only)
+ * Update the review status of a detection. (Admin only — requireAdmin on the route)
+ * Allowed workflow:
+ *   PENDING  → VERIFIED | REJECTED
+ *   VERIFIED → RESOLVED
+ *   REJECTED / RESOLVED are final — no further transitions.
  * Body: { status }
  */
 const updateDetectionStatus = async (req, res) => {
@@ -246,12 +250,29 @@ const updateDetectionStatus = async (req, res) => {
       );
     }
 
+    const newStatus = status.toUpperCase();
+
     const detection = await prisma.detection.findUnique({ where: { id } });
     if (!detection) return sendError(res, 404, 'Detection not found.');
 
+    // ── Transition validation (see STATUS_TRANSITIONS in utils/severity.js) ──
+    // e.g. REJECTED → VERIFIED, RESOLVED → PENDING, VERIFIED → REJECTED all fail here.
+    const currentStatus = (detection.status || 'PENDING').toUpperCase();
+    const allowedNext = STATUS_TRANSITIONS[currentStatus] || [];
+    if (!allowedNext.includes(newStatus)) {
+      const allowedText = allowedNext.length
+        ? `Allowed from ${currentStatus}: ${allowedNext.join(', ')}.`
+        : `${currentStatus} is a final status and cannot be changed.`;
+      return sendError(
+        res,
+        400,
+        `Invalid status transition ${currentStatus} → ${newStatus}. ${allowedText}`
+      );
+    }
+
     const updated = await prisma.detection.update({
       where: { id },
-      data: { status: status.toUpperCase() },
+      data: { status: newStatus },
     });
 
     return sendSuccess(res, 200, 'Detection status updated.', {

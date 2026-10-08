@@ -27,7 +27,18 @@ const getSeverity = (confidence) => {
 
 // Valid values accepted in filters / status updates
 const VALID_SEVERITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
-const VALID_STATUSES   = ['PENDING', 'REVIEWED', 'RESOLVED', 'FLAGGED'];
+const VALID_STATUSES   = ['PENDING', 'VERIFIED', 'REJECTED', 'RESOLVED'];
 const VALID_ROLES      = ['ADMIN', 'ANALYST', 'DRIVER'];
 
-module.exports = { getSeverity, VALID_SEVERITIES, VALID_STATUSES, VALID_ROLES };
+// Allowed status workflow (enforced in updateDetectionStatus):
+//   PENDING  → VERIFIED | REJECTED
+//   VERIFIED → RESOLVED
+//   REJECTED and RESOLVED are final — no further transitions.
+const STATUS_TRANSITIONS = {
+  PENDING:  ['VERIFIED', 'REJECTED'],
+  VERIFIED: ['RESOLVED'],
+  REJECTED: [],
+  RESOLVED: [],
+};
+
+module.exports = { getSeverity, VALID_SEVERITIES, VALID_STATUSES, VALID_ROLES, STATUS_TRANSITIONS };

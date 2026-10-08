@@ -8,7 +8,7 @@ const {
   updateDetectionStatus,
   deleteDetection,
 } = require('../controllers/detectionController');
-const { verifyToken } = require('../middleware/authMiddleware');
+const { verifyToken, requireAdmin } = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware');
 
 // All detection routes require a valid JWT
@@ -25,8 +25,8 @@ router.get('/', getAllDetections);
 // GET /api/detections/:id    — Get one detection
 router.get('/:id', getDetectionById);
 
-// PATCH /api/detections/:id/status — Update review status
-router.patch('/:id/status', updateDetectionStatus);
+// PATCH /api/detections/:id/status — Update review status (Admin only)
+router.patch('/:id/status', requireAdmin, updateDetectionStatus);
 
 // DELETE /api/detections/:id — Role-based deletion
 // ADMIN: any record · DRIVER: own records only · ANALYST: forbidden (403)

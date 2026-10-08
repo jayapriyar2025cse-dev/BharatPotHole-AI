@@ -1084,6 +1084,35 @@ function canDeleteDetection(detection) {
   return false; // ANALYST and unknown roles never get a delete control
 }
 
+/** Status badge colour — reuses the existing badge colour classes. */
+function statusBadgeClass(status) {
+  switch (status) {
+    case "PENDING":  return "badge-warn";
+    case "VERIFIED": return "badge-accent";
+    case "REJECTED": return "badge-danger";
+    case "RESOLVED": return "badge-success";
+    default:         return "badge-soft";
+  }
+}
+
+/**
+ * Admin review actions — mirrors the backend transition rules:
+ *   PENDING  → Verify / Reject
+ *   VERIFIED → Mark as Resolved
+ *   REJECTED / RESOLVED → no status actions
+ * Only ADMIN users see these controls; the server enforces the same rules.
+ */
+function statusActionsHtml(d) {
+  if (currentUserRole() !== "ADMIN") return "";
+  const status = String(d.status || "PENDING");
+  const btn = (nextStatus, label) =>
+    `<button type="button" class="btn btn-soft btn-xs row-status-btn" data-id="${escapeHtml(d.id)}" data-status="${nextStatus}">${label}</button>`;
+
+  if (status === "PENDING") return btn("VERIFIED", "Verify") + btn("REJECTED", "Reject");
+  if (status === "VERIFIED") return btn("RESOLVED", "Mark as Resolved");
+  return ""; // REJECTED and RESOLVED are final — no status actions
+}
+
 function renderHistoryRows(detections) {
   const tbody = $("#historyBody");
   const showActions = canShowDeleteColumn();
@@ -1096,10 +1125,15 @@ function renderHistoryRows(detections) {
       const imageUrl = d.imageUrl
         ? `<img src="${escapeHtml(d.imageUrl)}" alt="" onerror="this.remove()" />`
         : "";
-      // No delete control for rows the user may not remove (backend refuses too)
+      // Admin status actions (Verify / Reject / Mark as Resolved) + delete control.
+      // No controls for rows the user may not act on (backend refuses too).
+      const statusBtns = statusActionsHtml(d);
+      const deleteBtn = canDeleteDetection(d)
+        ? `<button type="button" class="btn btn-soft btn-xs row-delete-btn" data-id="${escapeHtml(d.id)}" aria-label="Delete detection"><svg class="icon"><use href="#i-trash"></use></svg><span>Delete</span></button>`
+        : "";
       const actionsCell = showActions
-        ? canDeleteDetection(d)
-          ? `<td><div class="row-actions"><button type="button" class="btn btn-soft btn-xs row-delete-btn" data-id="${escapeHtml(d.id)}" aria-label="Delete detection"><svg class="icon"><use href="#i-trash"></use></svg><span>Delete</span></button></div></td>`
+        ? statusBtns || deleteBtn
+          ? `<td><div class="row-actions">${statusBtns}${deleteBtn}</div></td>`
           : `<td></td>`
         : "";
       return `
@@ -1115,7 +1149,7 @@ function renderHistoryRows(detections) {
         <td class="cell-strong">${d.potholeCount ?? 0}</td>
         <td>${escapeHtml(formatPercent(d.confidence))}</td>
         <td><span class="badge sev-${escapeHtml(severity)}">${escapeHtml(d.severity || "LOW")}</span></td>
-        <td><span class="badge badge-soft">${escapeHtml(status)}</span></td>
+        <td><span class="badge ${statusBadgeClass(status)}">${escapeHtml(status)}</span></td>
         ${actionsCell}
       </tr>`;
     })
@@ -1158,6 +1192,48 @@ async function confirmDeleteDetection() {
       "Delete failed",
       error instanceof ApiError ? error.message : "The detection could not be deleted. Please try again."
     );
+  }
+}
+
+/* ══════════════ STATUS WORKFLOW (PATCH /api/detections/:id/status) ══════════════
+   Admin review actions on Detection History rows:
+     PENDING  → Verify (VERIFIED) / Reject (REJECTED)
+     VERIFIED → Mark as Resolved (RESOLVED)
+     REJECTED / RESOLVED → no actions
+   The backend validates the same transitions and requires an Admin JWT. */
+const STATUS_SUCCESS_MESSAGES = {
+  VERIFIED: "Detection verified successfully.",
+  REJECTED: "Detection rejected successfully.",
+  RESOLVED: "Detection marked as resolved.",
+};
+
+const statusUpdateInFlight = new Set(); // ids with an update pending — prevents duplicate clicks
+
+async function updateDetectionStatusRow(id, newStatus, button) {
+  if (!id || statusUpdateInFlight.has(id)) return;
+  statusUpdateInFlight.add(id);
+
+  // Disable this row's buttons while the request is in progress
+  const row = button?.closest("tr");
+  const rowButtons = row ? Array.from(row.querySelectorAll("button")) : [];
+  rowButtons.forEach((b) => { b.disabled = true; });
+
+  try {
+    await apiFetch(`/api/detections/${id}/status`, {
+      method: "PATCH",
+      body: { status: newStatus },
+    });
+    showToast("success", "Status updated", STATUS_SUCCESS_MESSAGES[newStatus] || "Detection status updated.");
+    await loadHistory(); // re-render the table with the fresh status (no manual refresh needed)
+  } catch (error) {
+    rowButtons.forEach((b) => { b.disabled = false; });
+    showToast(
+      "error",
+      "Status update failed",
+      error instanceof ApiError ? error.message : "The detection status could not be updated. Please try again."
+    );
+  } finally {
+    statusUpdateInFlight.delete(id);
   }
 }
 
@@ -1459,8 +1535,14 @@ function bindHistoryControls() {
     }
   });
 
-  // Row-level delete (event delegation — rows re-render on every load)
+  // Row-level actions (event delegation — rows re-render on every load)
   $("#historyBody").addEventListener("click", (event) => {
+    // Admin status workflow: Verify / Reject / Mark as Resolved
+    const statusButton = event.target.closest(".row-status-btn");
+    if (statusButton?.dataset.id) {
+      updateDetectionStatusRow(statusButton.dataset.id, statusButton.dataset.status, statusButton);
+      return;
+    }
     const button = event.target.closest(".row-delete-btn");
     if (button?.dataset.id) openDeleteModal(button.dataset.id);
   });

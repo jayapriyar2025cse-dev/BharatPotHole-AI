@@ -910,7 +910,7 @@ html.auth-gate .modal-overlay {
 .geo-btn .icon { width: 16px; height: 16px; }
 
 /* ══════════════ DELETE CONTROLS (history + confirm dialog) ══════════════ */
-.row-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.row-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 
 .btn-danger {
   background: rgba(244, 63, 94, 0.16); color: #fda4af;
